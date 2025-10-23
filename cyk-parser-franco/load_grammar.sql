@@ -3,16 +3,14 @@ TRUNCATE TABLE GLC_en_FNC RESTART IDENTITY;
 
 -- Reglas iniciales de la gramática
 INSERT INTO GLC_en_FNC (start, parte_izq, parte_der1, parte_der2, tipo_produccion) VALUES
-(true, 'S', 'I', 'D', 1),
+(true, 'S', 'I', 'D', 2),
+(true, 'S', 'I', 'R', 2),
 (false, 'I', '{', NULL, 1),
 (false, 'D', '}', NULL, 1),
-(false, 'S', 'I', 'R', 2),
 (false, 'R', 'A', 'D', 2),
 (false, 'Q', '''', NULL, 1),
-(false, 'S', 'Q', 'K', 2),
 (false, 'K', 'C', 'Q', 2),
 (false, 'J', '"', NULL, 1),
-(false, 'S', 'J', 'H', 2),
 (false, 'H', 'C', 'J', 2),
 (false, 'G', 'Y', 'E', 2),
 (false, 'A', 'X', 'F', 2),
@@ -23,23 +21,10 @@ INSERT INTO GLC_en_FNC (start, parte_izq, parte_der1, parte_der2, tipo_produccio
 (false, 'X', 'J', 'H', 2),
 (false, 'Y', 'Q', 'K', 2),
 (false, 'Y', 'J', 'H', 2),
-(false, 'Y', 'I', 'D', 1),
+(false, 'Y', 'I', 'D', 2),
 (false, 'Y', 'I', 'R', 2),
 (false, 'E', 'W', 'A', 2),
 (false, 'W', ',', NULL, 1);
-
--- S → 1..9 | NN
-INSERT INTO GLC_en_FNC (start, parte_izq, parte_der1, parte_der2, tipo_produccion) VALUES
-(true, 'S', '1', NULL, 1),
-(true, 'S', '2', NULL, 1),
-(true, 'S', '3', NULL, 1),
-(true, 'S', '4', NULL, 1),
-(true, 'S', '5', NULL, 1),
-(true, 'S', '6', NULL, 1),
-(true, 'S', '7', NULL, 1),
-(true, 'S', '8', NULL, 1),
-(true, 'S', '9', NULL, 1),
-(true, 'S', 'NN', NULL, 1);
 
 -- Y → 1..9 | NN
 INSERT INTO GLC_en_FNC (start, parte_izq, parte_der1, parte_der2, tipo_produccion) VALUES
@@ -52,7 +37,7 @@ INSERT INTO GLC_en_FNC (start, parte_izq, parte_der1, parte_der2, tipo_produccio
 (false, 'Y', '7', NULL, 1),
 (false, 'Y', '8', NULL, 1),
 (false, 'Y', '9', NULL, 1),
-(false, 'Y', 'NN', NULL, 1);
+(false, 'Y', 'N', 'N', 2);
 
 -- L → a..z
 INSERT INTO GLC_en_FNC (start, parte_izq, parte_der1, parte_der2, tipo_produccion) VALUES
@@ -94,7 +79,7 @@ INSERT INTO GLC_en_FNC (start, parte_izq, parte_der1, parte_der2, tipo_produccio
 (false, 'N', '7', NULL, 1),
 (false, 'N', '8', NULL, 1),
 (false, 'N', '9', NULL, 1),
-(false, 'N', 'NN', NULL, 1);
+(false, 'N', 'N', 'N', 2);
 
 -- C → LC | NC
 INSERT INTO GLC_en_FNC (start, parte_izq, parte_der1, parte_der2, tipo_produccion) VALUES
@@ -138,4 +123,4 @@ INSERT INTO GLC_en_FNC (start, parte_izq, parte_der1, parte_der2, tipo_produccio
 (false, 'C', '7', NULL, 1),
 (false, 'C', '8', NULL, 1),
 (false, 'C', '9', NULL, 1),
-(false, 'C', 'NN', NULL, 1);
+(false, 'C', 'N', 'N', 2);
