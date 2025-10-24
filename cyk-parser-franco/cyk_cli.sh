@@ -76,6 +76,19 @@ create_tables() {
     echo -e "${GREEN}Tablas creadas exitosamente${NC}"
 }
 
+# Función para crear funciones
+create_functions() {
+    echo -e "${YELLOW}Cargando funciones PL/pgSQL...${NC}"
+    
+    if [ -f "cyk_functions.sql" ]; then
+        execute_sql_file "cyk_functions.sql"
+        echo -e "${GREEN}Funciones cargadas exitosamente${NC}"
+    else
+        echo -e "${RED}Error: archivo 'cyk_functions.sql' no encontrado${NC}"
+        return 1
+    fi
+}
+
 # Función para cargar gramática
 load_grammar() {
     echo -e "${YELLOW}Cargando gramática en FNC...${NC}"
@@ -198,6 +211,7 @@ main() {
             1)
                 create_database
                 create_tables
+                create_functions
                 ;;
             2)
                 load_grammar

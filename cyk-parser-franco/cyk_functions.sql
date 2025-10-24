@@ -12,82 +12,82 @@ CREATE TABLE IF NOT EXISTS cyk_input (
 CREATE OR REPLACE FUNCTION get_vars_for_terminal(terminal TEXT)
 RETURNS TEXT[] AS $$
 DECLARE
-    vars TEXT[];
+    result_vars TEXT[];
 BEGIN
     SELECT ARRAY_AGG(DISTINCT parte_izq)
-    INTO vars
+    INTO result_vars
     FROM GLC_en_FNC
     WHERE tipo_produccion = 1 
       AND parte_der1 = terminal;
     
-    RETURN COALESCE(vars, ARRAY[]::TEXT[]);
+    RETURN COALESCE(result_vars, ARRAY[]::TEXT[]);
 END;
 $$ LANGUAGE plpgsql;
 
 -- Función auxiliar: obtener variables que derivan de dos variables
-CREATE OR REPLACE FUNCTION get_vars_for_pair(var1 TEXT, var2 TEXT)
+CREATE OR REPLACE FUNCTION get_vars_for_pair(left_var TEXT, right_var TEXT)
 RETURNS TEXT[] AS $$
 DECLARE
-    vars TEXT[];
+    result_vars TEXT[];
 BEGIN
     SELECT ARRAY_AGG(DISTINCT parte_izq)
-    INTO vars
+    INTO result_vars
     FROM GLC_en_FNC
     WHERE tipo_produccion = 2 
-      AND parte_der1 = var1 
-      AND parte_der2 = var2;
+      AND parte_der1 = left_var 
+      AND parte_der2 = right_var;
     
-    RETURN COALESCE(vars, ARRAY[]::TEXT[]);
+    RETURN COALESCE(result_vars, ARRAY[]::TEXT[]);
 END;
 $$ LANGUAGE plpgsql;
 
 -- Función auxiliar: unir dos arrays eliminando duplicados
-CREATE OR REPLACE FUNCTION array_union(arr1 TEXT[], arr2 TEXT[])
+CREATE OR REPLACE FUNCTION array_union(first_array TEXT[], second_array TEXT[])
 RETURNS TEXT[] AS $$
 BEGIN
     RETURN ARRAY(
-        SELECT DISTINCT unnest(arr1 || arr2)
+        SELECT DISTINCT unnest(first_array || second_array)
     );
 END;
 $$ LANGUAGE plpgsql;
 
 -- Función para tokenizar el string de entrada
-CREATE OR REPLACE FUNCTION tokenize_input(input TEXT)
+CREATE OR REPLACE FUNCTION tokenize_input(input_text TEXT)
 RETURNS TEXT[] AS $$
 DECLARE
-    tokens TEXT[];
-    i INT;
+    token_array TEXT[];
+    char_index INT;
     current_char TEXT;
 BEGIN
-    tokens := ARRAY[]::TEXT[];
+    token_array := ARRAY[]::TEXT[];
     
-    FOR i IN 1..LENGTH(input) LOOP
-        current_char := SUBSTRING(input FROM i FOR 1);
-        tokens := array_append(tokens, current_char);
+    FOR char_index IN 1..LENGTH(input_text) LOOP
+        current_char := SUBSTRING(input_text FROM char_index FOR 1);
+        token_array := array_append(token_array, current_char);
     END LOOP;
     
-    RETURN tokens;
+    RETURN token_array;
 END;
 $$ LANGUAGE plpgsql;
 
 -- Función principal: setear_matriz(fila)
-CREATE OR REPLACE FUNCTION setear_matriz(fila INT)
+CREATE OR REPLACE FUNCTION setear_matriz(fila_number INT)
 RETURNS VOID AS $$
 DECLARE
     input_str TEXT;
-    tokens TEXT[];
-    n INT;
-    i INT;
-    j INT;
-    k INT;
-    terminal TEXT;
-    current_vars TEXT[];
-    left_vars TEXT[];
-    right_vars TEXT[];
-    new_vars TEXT[];
-    var_left TEXT;
-    var_right TEXT;
-    pair_vars TEXT[];
+    token_array TEXT[];
+    string_length INT;
+    row_index INT;
+    col_index INT;
+    partition_index INT;
+    terminal_char TEXT;
+    terminal_vars TEXT[];
+    left_cell_vars TEXT[];
+    right_cell_vars TEXT[];
+    accumulated_vars TEXT[];
+    left_variable TEXT;
+    right_variable TEXT;
+    pair_production_vars TEXT[];
 BEGIN
     -- Obtener el string de entrada
     SELECT input_string INTO input_str FROM cyk_input LIMIT 1;
@@ -97,50 +97,54 @@ BEGIN
     END IF;
     
     -- Tokenizar el input
-    tokens := tokenize_input(input_str);
-    n := array_length(tokens, 1);
+    token_array := tokenize_input(input_str);
+    string_length := array_length(token_array, 1);
     
     -- Fila 1: llenar diagonal (X_ii)
-    IF fila = 1 THEN
-        FOR i IN 1..n LOOP
-            terminal := tokens[i];
-            current_vars := get_vars_for_terminal(terminal);
+    IF fila_number = 1 THEN
+        FOR row_index IN 1..string_length LOOP
+            terminal_char := token_array[row_index];
+            terminal_vars := get_vars_for_terminal(terminal_char);
             
             INSERT INTO matriz_cyk (i, j, x)
-            VALUES (i, i, current_vars)
+            VALUES (row_index, row_index, terminal_vars)
             ON CONFLICT (i, j) DO UPDATE
             SET x = EXCLUDED.x;
         END LOOP;
         
     -- Filas superiores: llenar niveles superiores
     ELSE
-        FOR i IN 1..(n - fila + 1) LOOP
-            j := i + fila - 1;
-            current_vars := ARRAY[]::TEXT[];
+        FOR row_index IN 1..(string_length - fila_number + 1) LOOP
+            col_index := row_index + fila_number - 1;
+            accumulated_vars := ARRAY[]::TEXT[];
             
             -- Probar todas las particiones posibles
-            FOR k IN i..(j-1) LOOP
-                -- Obtener variables de la celda izquierda (i,k)
-                SELECT x INTO left_vars FROM matriz_cyk WHERE matriz_cyk.i = i AND matriz_cyk.j = k;
+            FOR partition_index IN row_index..(col_index - 1) LOOP
+                -- Obtener variables de la celda izquierda (row_index, partition_index)
+                SELECT x INTO left_cell_vars 
+                FROM matriz_cyk 
+                WHERE i = row_index AND j = partition_index;
                 
-                -- Obtener variables de la celda derecha (k+1,j)
-                SELECT x INTO right_vars FROM matriz_cyk WHERE matriz_cyk.i = k+1 AND matriz_cyk.j = j;
+                -- Obtener variables de la celda derecha (partition_index + 1, col_index)
+                SELECT x INTO right_cell_vars 
+                FROM matriz_cyk 
+                WHERE i = partition_index + 1 AND j = col_index;
                 
                 -- Si ambas celdas tienen variables
-                IF left_vars IS NOT NULL AND right_vars IS NOT NULL THEN
+                IF left_cell_vars IS NOT NULL AND right_cell_vars IS NOT NULL THEN
                     -- Probar todas las combinaciones
-                    FOREACH var_left IN ARRAY left_vars LOOP
-                        FOREACH var_right IN ARRAY right_vars LOOP
-                            pair_vars := get_vars_for_pair(var_left, var_right);
-                            current_vars := array_union(current_vars, pair_vars);
+                    FOREACH left_variable IN ARRAY left_cell_vars LOOP
+                        FOREACH right_variable IN ARRAY right_cell_vars LOOP
+                            pair_production_vars := get_vars_for_pair(left_variable, right_variable);
+                            accumulated_vars := array_union(accumulated_vars, pair_production_vars);
                         END LOOP;
                     END LOOP;
                 END IF;
             END LOOP;
             
-            -- Insertar o actualizar la celda (i,j)
+            -- Insertar o actualizar la celda (row_index, col_index)
             INSERT INTO matriz_cyk (i, j, x)
-            VALUES (i, j, current_vars)
+            VALUES (row_index, col_index, accumulated_vars)
             ON CONFLICT (i, j) DO UPDATE
             SET x = EXCLUDED.x;
         END LOOP;
@@ -149,49 +153,49 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Función principal CYK
-CREATE OR REPLACE FUNCTION cyk(input TEXT)
+CREATE OR REPLACE FUNCTION cyk(input_text TEXT)
 RETURNS BOOLEAN AS $$
 DECLARE
-    n INT;
-    fila INT;
-    start_symbol TEXT;
-    final_vars TEXT[];
-    resultado BOOLEAN;
+    string_length INT;
+    fila_number INT;
+    grammar_start_symbol TEXT;
+    final_cell_vars TEXT[];
+    is_accepted BOOLEAN;
 BEGIN
     -- Limpiar tablas temporales
     TRUNCATE TABLE cyk_input;
     TRUNCATE TABLE matriz_cyk;
     
     -- Guardar el input
-    INSERT INTO cyk_input (input_string) VALUES (input);
+    INSERT INTO cyk_input (input_string) VALUES (input_text);
     
     -- Calcular longitud
-    n := LENGTH(input);
+    string_length := LENGTH(input_text);
     
-    IF n = 0 THEN
+    IF string_length = 0 THEN
         RETURN FALSE;
     END IF;
     
     -- Llenar la matriz fila por fila
-    FOR fila IN 1..n LOOP
-        PERFORM setear_matriz(fila);
+    FOR fila_number IN 1..string_length LOOP
+        PERFORM setear_matriz(fila_number);
     END LOOP;
     
     -- Obtener el símbolo inicial de la gramática
-    SELECT parte_izq INTO start_symbol
+    SELECT parte_izq INTO grammar_start_symbol
     FROM GLC_en_FNC
     WHERE start = true
     LIMIT 1;
     
-    -- Verificar si el símbolo inicial está en X[1,n]
-    SELECT x INTO final_vars
+    -- Verificar si el símbolo inicial está en X[1, string_length]
+    SELECT x INTO final_cell_vars
     FROM matriz_cyk
-    WHERE i = 1 AND j = n;
+    WHERE i = 1 AND j = string_length;
     
     -- Verificar si el símbolo inicial está en el conjunto final
-    resultado := start_symbol = ANY(final_vars);
+    is_accepted := grammar_start_symbol = ANY(final_cell_vars);
     
-    RETURN resultado;
+    RETURN is_accepted;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -243,136 +247,4 @@ SELECT
 FROM matriz_cyk
 ORDER BY (j - i + 1), i;
 
--- ================================================
--- Funciones auxiliares para debugging
--- ================================================
 
--- Función para mostrar el contenido de una celda específica
-CREATE OR REPLACE FUNCTION ver_celda(fila_i INT, fila_j INT)
-RETURNS TEXT AS $$
-DECLARE
-    vars TEXT[];
-BEGIN
-    SELECT x INTO vars FROM matriz_cyk WHERE i = fila_i AND j = fila_j;
-    RETURN COALESCE(array_to_string(vars, ', '), 'vacío');
-END;
-$$ LANGUAGE plpgsql;
-
--- Función para contar producciones por tipo
-CREATE OR REPLACE FUNCTION estadisticas_gramatica()
-RETURNS TABLE(
-    tipo TEXT,
-    cantidad BIGINT
-) AS $
-BEGIN
-    RETURN QUERY
-    SELECT 
-        CASE 
-            WHEN tipo_produccion = 1 THEN 'Producciones a terminales'
-            WHEN tipo_produccion = 2 THEN 'Producciones a variables'
-        END as tipo,
-        COUNT(*) as cantidad
-    FROM GLC_en_FNC
-    GROUP BY tipo_produccion
-    ORDER BY tipo_produccion;
-END;
-$ LANGUAGE plpgsql;
-
--- ================================================
--- Tests unitarios
--- ================================================
-
--- Test 1: JSON vacío {}
-CREATE OR REPLACE FUNCTION test_json_vacio()
-RETURNS VOID AS $
-DECLARE
-    resultado BOOLEAN;
-BEGIN
-    resultado := cyk('{}');
-    
-    IF resultado THEN
-        RAISE NOTICE 'TEST 1 PASADO: {} es válido';
-    ELSE
-        RAISE EXCEPTION 'TEST 1 FALLIDO: {} debería ser válido';
-    END IF;
-END;
-$ LANGUAGE plpgsql;
-
--- Test 2: JSON con un par clave-valor numérico
-CREATE OR REPLACE FUNCTION test_json_simple()
-RETURNS VOID AS $
-DECLARE
-    resultado BOOLEAN;
-BEGIN
-    resultado := cyk('{"a":10}');
-    
-    IF resultado THEN
-        RAISE NOTICE 'TEST 2 PASADO: {"a":10} es válido';
-    ELSE
-        RAISE EXCEPTION 'TEST 2 FALLIDO: {"a":10} debería ser válido';
-    END IF;
-END;
-$ LANGUAGE plpgsql;
-
--- Test 3: JSON con múltiples pares
-CREATE OR REPLACE FUNCTION test_json_multiple()
-RETURNS VOID AS $
-DECLARE
-    resultado BOOLEAN;
-BEGIN
-    resultado := cyk('{"a":10,"b":"hola"}');
-    
-    IF resultado THEN
-        RAISE NOTICE 'TEST 3 PASADO: {"a":10,"b":"hola"} es válido';
-    ELSE
-        RAISE EXCEPTION 'TEST 3 FALLIDO: {"a":10,"b":"hola"} debería ser válido';
-    END IF;
-END;
-$ LANGUAGE plpgsql;
-
--- Función para ejecutar todos los tests
-CREATE OR REPLACE FUNCTION ejecutar_todos_los_tests()
-RETURNS VOID AS $
-BEGIN
-    RAISE NOTICE '========================================';
-    RAISE NOTICE 'Ejecutando Tests Unitarios - CYK Parser';
-    RAISE NOTICE '========================================';
-    
-    PERFORM test_json_vacio();
-    PERFORM test_json_simple();
-    PERFORM test_json_multiple();
-    
-    RAISE NOTICE '========================================';
-    RAISE NOTICE 'Todos los tests completados exitosamente';
-    RAISE NOTICE '========================================';
-END;
-$ LANGUAGE plpgsql;
-
--- ================================================
--- Ejemplos de uso
--- ================================================
-
-/*
--- Cargar la gramática (ya está en el script del CLI)
-
--- Parsear un JSON
-SELECT cyk('{}');
-SELECT cyk('{"a":10}');
-SELECT cyk('{"a":10,"b":"hola"}');
-
--- Ver la gramática cargada
-SELECT * FROM vista_gramatica;
-
--- Ver la matriz CYK después de parsear
-SELECT * FROM mostrar_matriz_cyk();
-SELECT * FROM vista_matriz_cyk;
-
--- Ver una celda específica
-SELECT ver_celda(1, 5);
-
--- Estadísticas de la gramática
-SELECT * FROM estadisticas_gramatica();
-
--- Ejecutar tests
-SELECT ejecutar_todos_los_tests();
-*/
