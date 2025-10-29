@@ -1,3 +1,6 @@
+
+-- GRAMÁTICA PARA JSON
+
 -- Limpiamos la tabla
 TRUNCATE TABLE GLC_en_FNC RESTART IDENTITY;
 

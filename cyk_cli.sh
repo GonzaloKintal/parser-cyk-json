@@ -91,17 +91,36 @@ create_functions() {
 
 # Función para cargar gramática
 load_grammar() {
-    echo -e "${YELLOW}Cargando gramática en FNC...${NC}"
-    
-    # Primero limpiamos la tabla
-    execute_sql "TRUNCATE TABLE GLC_en_FNC RESTART IDENTITY;"
-    
-    # Insertamos todas las producciones
-    execute_sql_file "load_grammar.sql"
+    echo ""
+    echo -e "${GREEN}Seleccione la gramática a cargar:${NC}"
+    echo "1. Gramática JSON"
+    echo "2. Gramática Paréntesis Balanceados"
+    echo -n "Opción: "
+    read grammar_option
 
-    
+    case $grammar_option in
+        1)
+            grammar_file="load_grammar_json.sql"
+            ;;
+        2)
+            grammar_file="load_grammar_parentesis.sql"
+            ;;
+        *)
+            echo -e "${RED}Opción inválida${NC}"
+            return 1
+            ;;
+    esac
+
+    if [ ! -f "$grammar_file" ]; then
+        echo -e "${RED}Error: archivo '$grammar_file' no encontrado${NC}"
+        return 1
+    fi
+
+    echo -e "${YELLOW}Cargando gramática desde ${grammar_file}...${NC}"
+    execute_sql_file "$grammar_file"
     echo -e "${GREEN}Gramática cargada exitosamente${NC}"
 }
+
 
 
 # Función para mostrar la gramática
@@ -157,39 +176,10 @@ show_menu() {
     echo "3. Mostrar gramática"
     echo "4. Parsear expresión JSON"
     echo "5. Mostrar matriz CYK"
-    echo "6. Ejecutar tests"
-    echo "7. Limpiar tablas"
-    echo "8. Salir"
+    echo "6. Limpiar tablas"
+    echo "7. Salir"
     echo ""
     echo -n "Seleccione una opción: "
-}
-
-# Función para ejecutar tests
-run_tests() {
-    echo -e "${YELLOW}Ejecutando tests unitarios...${NC}"
-    
-    tests=(
-        '{"a":10}'
-        '{"a":10,"b":"hola"}'
-        '{}'
-    )
-    
-    passed=0
-    failed=0
-    
-    for test in "${tests[@]}"; do
-        echo ""
-        echo -e "${BLUE}Test: $test${NC}"
-        if parse_json "$test"; then
-            ((passed++))
-        else
-            ((failed++))
-        fi
-    done
-    
-    echo ""
-    echo -e "${GREEN}Tests pasados: $passed${NC}"
-    echo -e "${RED}Tests fallidos: $failed${NC}"
 }
 
 # Función para limpiar tablas
@@ -228,12 +218,9 @@ main() {
                 show_matrix
                 ;;
             6)
-                run_tests
-                ;;
-            7)
                 clean_tables
                 ;;
-            8)
+            7)
                 echo -e "${BLUE}¡Hasta luego!${NC}"
                 exit 0
                 ;;

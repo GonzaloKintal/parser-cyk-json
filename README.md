@@ -199,11 +199,9 @@ Si adopta una gramática JSON, reemplace las entradas de GLC_en_FNC y ajuste los
 
 ## 🧑‍💻 Autores / Grupo
 
-- Integrante 1 — Legajo: _____
-- Integrante 2 — Legajo: _____
-- Integrante 3 — Legajo: _____
-- Integrante 4 — Legajo: _____
-
+- Integrante 1 — Gonzalo Kintal
+- Integrante 2 — Fabian Hunt
+- Integrante 3 — Franco Mendoza
 
 ## 📚 Notas adicionales
 
