@@ -237,7 +237,7 @@ main() {
                 show_grammar
                 ;;
             4)
-                echo -n -e "${YELLOW}Ingrese la expresión: ${NC}"
+                echo -n -e "${PURPLE}Ingrese la expresión: ${NC}"
                 read expression
                 parse_expression "$expression"
                 ;;
