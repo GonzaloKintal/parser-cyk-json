@@ -13,13 +13,33 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
+
+# Función para imprimir caja con bordes gruesos y redondeados
+print_box() {
+    local text="$1"
+    local color="$2"
+    local length=${#text}
+    local width=$((length + 8))
+    
+    echo -e "${color}╭$(printf '─%.0s' $(seq 1 $width))╮${NC}"
+    echo -e "${color}│    ${text}    │${NC}"
+    echo -e "${color}╰$(printf '─%.0s' $(seq 1 $width))╯${NC}"
+}
 
 # Función para imprimir encabezado
 print_header() {
-    echo -e "${BLUE}================================${NC}"
-    echo -e "${BLUE}   CYK Parser CLI - TP 2025C2${NC}"
-    echo -e "${BLUE}================================${NC}"
+    echo -e "${BLUE}╭────────────────────────────────────────────╮${NC}"
+    echo -e "${BLUE}│           CYK Parser CLI                   │${NC}"
+    echo -e "${BLUE}│           TP 2025C2                        │${NC}"
+    echo -e "${BLUE}╰────────────────────────────────────────────╯${NC}"
+}
+
+# Función para imprimir separador
+print_separator() {
+    echo -e "${CYAN}────────────────────────────────────────────${NC}"
 }
 
 # Función para ejecutar SQL
@@ -34,18 +54,18 @@ execute_sql_file() {
 
 # Función para crear base de datos
 create_database() {
-    echo -e "${YELLOW}Creando base de datos...${NC}"
+    print_box "Creando base de datos..." "$YELLOW"
     psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -c "CREATE DATABASE $DB_NAME;" 2>/dev/null
     if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Base de datos creada exitosamente${NC}"
+        print_box "Base de datos creada exitosamente" "$GREEN"
     else
-        echo -e "${YELLOW}La base de datos ya existe o hubo un error${NC}"
+        print_box "La base de datos ya existe o hubo un error" "$YELLOW"
     fi
 }
 
 # Función para crear tablas
 create_tables() {
-    echo -e "${YELLOW}Creando tablas...${NC}"
+    print_box "Creando tablas..." "$YELLOW"
     execute_sql "
     CREATE TABLE IF NOT EXISTS GLC_en_FNC (
         id SERIAL PRIMARY KEY,
@@ -73,18 +93,18 @@ create_tables() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     "
-    echo -e "${GREEN}Tablas creadas exitosamente${NC}"
+    print_box "Tablas creadas exitosamente" "$GREEN"
 }
 
 # Función para crear funciones
 create_functions() {
-    echo -e "${YELLOW}Cargando funciones PL/pgSQL...${NC}"
+    print_box "Cargando funciones PL/pgSQL..." "$YELLOW"
     
     if [ -f "cyk_functions.sql" ]; then
         execute_sql_file "cyk_functions.sql"
-        echo -e "${GREEN}Funciones cargadas exitosamente${NC}"
+        print_box "Funciones cargadas exitosamente" "$GREEN"
     else
-        echo -e "${RED}Error: archivo 'cyk_functions.sql' no encontrado${NC}"
+        print_box "Error: archivo 'cyk_functions.sql' no encontrado" "$RED"
         return 1
     fi
 }
@@ -92,10 +112,12 @@ create_functions() {
 # Función para cargar gramática
 load_grammar() {
     echo ""
-    echo -e "${GREEN}Seleccione la gramática a cargar:${NC}"
-    echo "1. Gramática JSON"
-    echo "2. Gramática Paréntesis Balanceados"
-    echo -n "Opción: "
+    print_box "Seleccione la gramática a cargar:" "$GREEN"
+    echo -e "${CYAN}╭────────────────────────────────────────────╮${NC}"
+    echo -e "${CYAN}│  1. Gramática JSON                         │${NC}"
+    echo -e "${CYAN}│  2. Gramática Paréntesis Balanceados       │${NC}"
+    echo -e "${CYAN}╰────────────────────────────────────────────╯${NC}"
+    echo -n -e "${YELLOW}Opción: ${NC}"
     read grammar_option
 
     case $grammar_option in
@@ -106,26 +128,25 @@ load_grammar() {
             grammar_file="load_grammar_parentesis.sql"
             ;;
         *)
-            echo -e "${RED}Opción inválida${NC}"
+            print_box "Opción inválida" "$RED"
             return 1
             ;;
     esac
 
     if [ ! -f "$grammar_file" ]; then
-        echo -e "${RED}Error: archivo '$grammar_file' no encontrado${NC}"
+        print_box "Error: archivo '$grammar_file' no encontrado" "$RED"
         return 1
     fi
 
-    echo -e "${YELLOW}Cargando gramática desde ${grammar_file}...${NC}"
+    print_box "Cargando gramática desde ${grammar_file}..." "$YELLOW"
     execute_sql_file "$grammar_file"
-    echo -e "${GREEN}Gramática cargada exitosamente${NC}"
+    print_box "Gramática cargada exitosamente" "$GREEN"
 }
-
-
 
 # Función para mostrar la gramática
 show_grammar() {
-    echo -e "${YELLOW}Gramática actual en FNC:${NC}"
+    echo ""
+    print_box "Gramática actual en FNC:" "$YELLOW"
     execute_sql "
     SELECT 
         CASE WHEN start THEN '→' ELSE ' ' END as inicio,
@@ -141,25 +162,30 @@ show_grammar() {
     "
 }
 
-# Función para parsear JSON
-parse_json() {
-    local json_string="$1"
-    echo -e "${YELLOW}Parseando: ${NC}$json_string"
+# Función para parsear expresión
+parse_expression() {
+    local expression="$1"
+    echo ""
+    print_box "Parseando expresión:" "$YELLOW"
+    echo -e "${CYAN}╭────────────────────────────────────────────╮${NC}"
+    echo -e "${CYAN}│   $expression${NC}"
+    echo -e "${CYAN}╰────────────────────────────────────────────╯${NC}"
     
-    result=$(execute_sql "SELECT cyk('$json_string');" 2>&1)
+    result=$(execute_sql "SELECT cyk('$expression');" 2>&1)
     
     if [[ $result == *"t"* ]] || [[ $result == *"true"* ]]; then
-        echo -e "${GREEN}✓ JSON VÁLIDO${NC}"
+        print_box "EXPRESIÓN VÁLIDA" "$GREEN"
         return 0
     else
-        echo -e "${RED}✗ JSON INVÁLIDO${NC}"
+        print_box "EXPRESIÓN INVÁLIDA" "$RED"
         return 1
     fi
 }
 
 # Función para mostrar matriz CYK
 show_matrix() {
-    echo -e "${YELLOW}Matriz CYK:${NC}"
+    echo ""
+    print_box "Matriz CYK:" "$YELLOW"
     execute_sql "
     SELECT i, j, array_to_string(x, ', ') as variables
     FROM matriz_cyk
@@ -167,26 +193,27 @@ show_matrix() {
     "
 }
 
+# Función para limpiar tablas
+clean_tables() {
+    print_box "Limpiando tablas..." "$YELLOW"
+    execute_sql "TRUNCATE TABLE matriz_cyk; TRUNCATE TABLE GLC_en_FNC RESTART IDENTITY;"
+    print_box "Tablas limpiadas" "$GREEN"
+}
+
 # Menú principal
 show_menu() {
     echo ""
-    echo -e "${GREEN}Opciones:${NC}"
-    echo "1. Crear/Inicializar base de datos"
-    echo "2. Cargar gramática en FNC"
-    echo "3. Mostrar gramática"
-    echo "4. Parsear expresión JSON"
-    echo "5. Mostrar matriz CYK"
-    echo "6. Limpiar tablas"
-    echo "7. Salir"
-    echo ""
-    echo -n "Seleccione una opción: "
-}
-
-# Función para limpiar tablas
-clean_tables() {
-    echo -e "${YELLOW}Limpiando tablas...${NC}"
-    execute_sql "TRUNCATE TABLE matriz_cyk; TRUNCATE TABLE GLC_en_FNC RESTART IDENTITY;"
-    echo -e "${GREEN}Tablas limpiadas${NC}"
+    print_box "Menú Principal:" "$GREEN"
+    echo -e "${CYAN}╭────────────────────────────────────────────╮${NC}"
+    echo -e "${CYAN}│  1. Crear/Inicializar base de datos        │${NC}"
+    echo -e "${CYAN}│  2. Cargar gramática en FNC                │${NC}"
+    echo -e "${CYAN}│  3. Mostrar gramática                      │${NC}"
+    echo -e "${CYAN}│  4. Parsear expresión                      │${NC}"
+    echo -e "${CYAN}│  5. Mostrar matriz CYK                     │${NC}"
+    echo -e "${CYAN}│  6. Limpiar tablas                         │${NC}"
+    echo -e "${CYAN}│  7. Salir                                  │${NC}"
+    echo -e "${CYAN}╰────────────────────────────────────────────╯${NC}"
+    echo -n -e "${YELLOW}Seleccione una opción: ${NC}"
 }
 
 # Main loop
@@ -210,9 +237,9 @@ main() {
                 show_grammar
                 ;;
             4)
-                echo -n "Ingrese la expresión JSON: "
-                read json_expr
-                parse_json "$json_expr"
+                echo -n -e "${YELLOW}Ingrese la expresión: ${NC}"
+                read expression
+                parse_expression "$expression"
                 ;;
             5)
                 show_matrix
@@ -221,11 +248,13 @@ main() {
                 clean_tables
                 ;;
             7)
-                echo -e "${BLUE}¡Hasta luego!${NC}"
+                echo ""
+                print_box "¡Hasta luego!" "$BLUE"
+                echo ""
                 exit 0
                 ;;
             *)
-                echo -e "${RED}Opción inválida${NC}"
+                print_box "Opción inválida" "$RED"
                 ;;
         esac
     done
